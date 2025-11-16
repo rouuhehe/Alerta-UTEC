@@ -1,0 +1,60 @@
+import boto3, time, os, hashlib, json
+
+def hash_password(password):
+    return hashlib.sha256(password.encode()).hexdigest()
+
+def lambda_handler(event, context):
+    dynamodb = boto3.resource('dynamodb')
+    table_name = os.environ['users_table']
+    admin_key = os.environ['ADMIN_MASTER_KEY']
+    table = dynamodb.Table(table_name)
+    now = str(time.time())
+
+    body = event.get("body")
+    if isinstance(body, str):
+        body = json.loads(body)
+
+    # Validaciones
+    if body.get('type', '').lower() not in ['admin', 'user', 'solver']:
+        return {'statusCode': 400, 'body': 'Invalid type'}
+
+    if body.get('type', '').lower() == 'admin':
+        if body.get('admin_key') != admin_key:
+            return {'statusCode': 403, 'body': 'Invalid admin key'}
+
+    if "@utec.edu.pe" not in body.get('user_id', ''):
+        return {'statusCode': 400, 'body': 'Invalid user_id'}
+
+    password = body.get('password', '')
+    if len(password) < 6:
+        return {'statusCode': 400, 'body': 'Password too short'}
+
+    name = body.get('name', '').strip()
+    if not name or not all(c.isalpha() or c.isspace() for c in name):
+        return {'statusCode': 400, 'body': 'Invalid name'}
+
+    user_id = body['user_id']
+
+    # Verificar si el usuario ya existe
+    existing_user = table.get_item(Key={'type': body['type'].lower(), 'user_id': user_id})
+    if 'Item' in existing_user:
+        return {'statusCode': 409, 'body': 'User already exists'}   
+
+    user_item = {
+        'user_id': user_id,
+        'name': name,
+        'type': body['type'].lower(),
+        'password_hash': hash_password(password),
+        'active': True,
+        'created_at': now,
+        'updated_at': now
+    }
+
+    try:
+        table.put_item(Item=user_item)
+        return {
+            'statusCode': 201,
+            'body': json.dumps({'message': f'User {user_id} created successfully'})
+        }
+    except Exception as e:
+        return {'statusCode': 500, 'body': f'Error creating user: {str(e)}'}
