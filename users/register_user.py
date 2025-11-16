@@ -33,6 +33,7 @@ def lambda_handler(event, context):
     dynamodb = boto3.resource('dynamodb')
     table_name = os.environ['users_table']
     admin_key = os.environ['ADMIN_MASTER_KEY']
+    solver_key = os.environ['SOLVER_MASTER_KEY']
     table = dynamodb.Table(table_name)
     now = str(time.time())
 
@@ -48,6 +49,9 @@ def lambda_handler(event, context):
     if user_type == 'admin' and body.get('admin_key') != admin_key:
         return {'statusCode': 403, 'body': 'Invalid admin key'}
 
+    if user_type == 'solver' and body.get('solver_key') != solver_key:
+        return {'statusCode': 403, 'body': 'Invalid solver key'}
+    
     user_id = body.get('user_id', '')
     if "@utec.edu.pe" not in user_id:
         return {'statusCode': 400, 'body': 'Invalid user_id'}
@@ -61,7 +65,7 @@ def lambda_handler(event, context):
         return {'statusCode': 400, 'body': 'Invalid name'}
 
     # Verificar si ya existe
-    existing_user = table.get_item(Key={'type': user_type, 'user_id': user_id})
+    existing_user = table.get_item(Key={'user_id': user_id})
     if 'Item' in existing_user:
         return {'statusCode': 409, 'body': 'User already exists'}
 

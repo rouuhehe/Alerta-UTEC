@@ -53,7 +53,7 @@ def lambda_handler(event, context):
 
     try:
         res = table.update_item(
-            Key={"type": type, "user_id": user_id},
+            Key={"user_id": user_id},
             UpdateExpression=update_expression,
             ExpressionAttributeValues=expr_values,
             ConditionExpression="attribute_exists(user_id)",

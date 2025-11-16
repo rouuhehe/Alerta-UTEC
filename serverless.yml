@@ -8,6 +8,17 @@ provider:
   stage: ${opt:stage, 'dev'}
   iam:
     role: arn:aws:iam::598447946208:role/LabRole
+  httpApi:
+    cors:
+      allowedOrigins:
+        - "*"           
+      allowedHeaders:
+        - "*"
+      allowedMethods:
+        - GET
+        - POST
+        - PATCH
+        - OPTIONS
   deploymentMethod: direct
   environment:
     incidents_table: incidents
@@ -16,6 +27,7 @@ provider:
     uploads_bucket: alerta-utec-bucket
     JWT_SECRET: test_secret # solo para pruebas
     ADMIN_MASTER_KEY: uwu12345
+    SOLVER_MASTER_KEY: 7w712345
     sessions_table: sessions
     connections_table: connections
     USER_REGISTER_TOPIC: !Ref UserRegisterTopic
@@ -73,15 +85,20 @@ resources:
         TableName: users
         BillingMode: PAY_PER_REQUEST
         AttributeDefinitions:
-          - AttributeName: type
-            AttributeType: S
           - AttributeName: user_id
+            AttributeType: S
+          - AttributeName: type
             AttributeType: S
         KeySchema:
-          - AttributeName: type
-            KeyType: HASH
           - AttributeName: user_id
-            KeyType: RANGE
+            KeyType: HASH
+        GlobalSecondaryIndexes:
+          - IndexName: type_index
+            KeySchema:
+              - AttributeName: type
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
 
     ## DynamoDB Places
     PlacesTable:
@@ -321,10 +338,3 @@ functions:
             Fn::GetAtt:
               - IncidentsTable
               - StreamArn
-  subscribe_user_to_topic:
-  handler: subscribe_user.lambda_handler
-  events:
-    - httpApi:
-        path: /auth/subscribe
-        method: post
-

@@ -46,7 +46,7 @@ def lambda_handler(event, context):
 
 
     # BUSCAMOS AL USUARIO DIRECTO POR TYPE Y user_id
-    res = users.get_item(Key={"type": type, "user_id": user_id})
+    res = users.get_item(Key={"user_id": user_id})
 
     if "Item" not in res:
         return {"statusCode": 404, "body": "user not found"}
