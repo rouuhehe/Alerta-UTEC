@@ -28,7 +28,6 @@ def lambda_handler(event, context):
     type = body.get("type", "user")   # 'USER', 'ADMIN', 'SOLVER'
     department = body.get("department", None)  # SOLO SI ES SOLVER
 
-
     dynamo = boto3.resource('dynamodb')
     users = dynamo.Table(os.getenv("users_table"))
     sessions = dynamo.Table(os.getenv("sessions_table"))
@@ -74,14 +73,6 @@ def lambda_handler(event, context):
         "iat": int(time.time()),
         "exp": int(time.time()) + 43200,
     }
-
-    if department:
-        payload["department"] = department
-
-    if user["type"] == "admin":
-        admin_key = body.get("admin_key")
-        if admin_key != os.getenv("ADMIN_MASTER_KEY"):
-            return {"statusCode": 403, "body": "invalid admin key"}
 
     token = make_token(payload)
 
