@@ -1,6 +1,6 @@
 import json, boto3, os, base64, hmac, hashlib, time
 
-SECRET_KEY = os.environ["JWT_SECRET_KEY"]
+SECRET_KEY = os.environ["JWT_SECRET"]
 dynamodb = boto3.client("dynamodb")
 table_name = os.environ["incidents_table"]
 
