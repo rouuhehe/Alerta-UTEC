@@ -1,6 +1,6 @@
 import base64, hashlib, hmac, boto3, os, uuid, time, json
 
-SECRET_KEY = os.environ["JWT_SECRET_KEY"]
+SECRET_KEY = os.environ["JWT_SECRET"]
 
 # DynamoDB
 dynamo = boto3.resource("dynamodb")
@@ -44,7 +44,7 @@ def lambda_handler(event, context):
         if isinstance(body, str):
             body = json.loads(body)
 
-        required_fields = ["category", "place_id", "description", "place_id"]
+        required_fields = ["category", "place_id", "description"]
         for field in required_fields:
             if field not in body:
                 return {"statusCode": 400, "body": f"Missing required field: {field}"}

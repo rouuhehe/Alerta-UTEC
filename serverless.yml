@@ -175,6 +175,14 @@ functions:
       - httpApi:
           path: /incidents
           method: get
+
+  get_incidents_paginated:
+    handler: get_incidents_paginated.lambda_handler
+    events:
+      - httpApi:
+          path: /incidents/paginated
+          method: get
+
   report_incident:
     handler: report_incident.lambda_handler
     events:
