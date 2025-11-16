@@ -1,47 +1,75 @@
-import boto3
-import os
-import uuid
-import time
-import json
+import base64, hashlib, hmac, boto3, os, uuid, time, json
+
+SECRET_KEY = os.environ["JWT_SECRET_KEY"]
 
 # DynamoDB
 dynamo = boto3.resource("dynamodb")
 table_name = os.environ["incidents_table"]
 incidents_table = dynamo.Table(table_name)
 
-def lambda_handler(event, context):
+def b64url_encode(data: bytes) -> str:
+    return base64.urlsafe_b64encode(data).decode().rstrip("=")
+
+def b64url_decode(data: str) -> bytes:
+    padding = "=" * (-len(data) % 4)
+    return base64.urlsafe_b64decode(data + padding)
+
+def verify_token(token):
     try:
-        # Body esperado en JSON
+        header_b64, body_b64, signature = token.split(".")
+        expected_sig = b64url_encode(
+            hmac.new(SECRET_KEY.encode(), f"{header_b64}.{body_b64}".encode(), hashlib.sha256).digest()
+        )
+        if not hmac.compare_digest(expected_sig, signature):
+            return None
+        payload = json.loads(b64url_decode(body_b64))
+        if payload.get("exp", 0) < time.time():
+            return None
+        return payload
+    except:
+        return None
+
+def lambda_handler(event, context):
+    headers = event.get("headers", {})
+    auth = headers.get("authorization") or headers.get("Authorization") or ""
+    if not auth.startswith("Bearer "):
+        return {"statusCode": 401, "body": "missing token"}
+    token = auth.replace("Bearer ", "")
+    user = verify_token(token)
+    if not user:
+        return {"statusCode": 401, "body": "invalid token"}
+
+    try:
         body = event.get("body")
         if isinstance(body, str):
             body = json.loads(body)
-        
-        required_fields = ["category", "reporter_id", "place_id"]
+
+        required_fields = ["category", "place_id", "description", "place_id"]
         for field in required_fields:
             if field not in body:
                 return {"statusCode": 400, "body": f"Missing required field: {field}"}
 
-        # Generamos ID y timestamp
         incident_id = str(uuid.uuid4())
         timestamp = str(int(time.time()))
-        state = "PENDIENTE"
+
+        reporter_id = user["sub"]
 
         # Creamos el item a guardar
         item = {
             "incident_id": incident_id,
             "category": body["category"],
-            "reporter_id": body["reporter_id"],
+            "reporter_id": reporter_id,
             "place_id": body["place_id"],
-            "time_created": timestamp
+            "time_created": timestamp,
+            "description": body.get("description")
         }
 
-        # solo si ya fue resuelto 
-        if body.get("state"): item["state"] = body["state"]
-        if body.get("solver_id"): item["solver_id"] = body["solver_id"]
-        if body.get("time_resolved"): item["time_resolved"] = body["time_resolved"]
-        if body.get("description"): item["description"] = body["description"]
+        # Campos opcionales
+        for optional in ["state", "solver_id", "time_resolved"]:
+            if body.get(optional):
+                item[optional] = body[optional]
 
-        # Guardamos en DynamoDB
+        # Guardamos en DynamoDB :)
         incidents_table.put_item(Item=item)
 
         return {

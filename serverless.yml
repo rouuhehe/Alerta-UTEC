@@ -1,0 +1,243 @@
+org: matiaswalde
+service: alertaUtec   
+
+provider:
+  name: aws
+  runtime: python3.13
+  region: us-east-1
+  iam:
+    role: arn:aws:iam::598447946208:role/LabRole
+  deploymentMethod: direct
+  environment:
+    incidents_table: incidents
+    users_table: users
+    places_table: places
+    uploads_bucket: alerta-utec-bucket
+    JWT_SECRET: test_secret # solo para pruebas
+    ADMIN_MASTER_KEY: uwu12345
+    
+    sessions_table: sessions
+
+resources:
+  Resources:
+
+    ## -----------------------------------------------------
+    ## bucket (fotos y videos)
+    ## -----------------------------------------------------
+    AlertaUtecBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: alerta-utec-bucket
+        VersioningConfiguration:
+          Status: Enabled
+        BucketEncryption:
+          ServerSideEncryptionConfiguration:
+            - ServerSideEncryptionByDefault:
+                SSEAlgorithm: AES256
+        CorsConfiguration:
+          CorsRules:
+            - AllowedMethods: ["GET", "PUT"]
+              AllowedOrigins: ["*"]
+              AllowedHeaders: ["*"]
+        PublicAccessBlockConfiguration:
+          BlockPublicAcls: true
+          BlockPublicPolicy: true
+          IgnorePublicAcls: true
+          RestrictPublicBuckets: true
+        LifecycleConfiguration:
+          Rules:
+            - Id: ExpireUploads
+              Status: Enabled
+              ExpirationInDays: 30
+
+    ## -----------------------------------------------------
+    ## tabla users
+    ## -----------------------------------------------------
+    UsersTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: users
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: type
+            AttributeType: S
+          - AttributeName: user_id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: type
+            KeyType: HASH
+          - AttributeName: user_id
+            KeyType: RANGE
+
+    ## -----------------------------------------------------
+    ## tabla places
+    ## -----------------------------------------------------
+    PlacesTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: places
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: place_id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: place_id
+            KeyType: HASH
+
+    ## -----------------------------------------------------
+    ## tabla incidents
+    ## -----------------------------------------------------
+    IncidentsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: incidents
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: incident_id
+            AttributeType: S
+          - AttributeName: state
+            AttributeType: S
+          - AttributeName: category
+            AttributeType: S
+          - AttributeName: reporter_id
+            AttributeType: S
+          - AttributeName: solver_id
+            AttributeType: S
+          - AttributeName: time_created
+            AttributeType: S
+          - AttributeName: time_resolved
+            AttributeType: S
+          - AttributeName: place_id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: incident_id
+            KeyType: HASH
+        GlobalSecondaryIndexes:
+          - IndexName: state_category_index
+            KeySchema:
+              - AttributeName: state
+                KeyType: HASH
+              - AttributeName: category
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
+          - IndexName: reporter_history_index
+            KeySchema:
+              - AttributeName: reporter_id
+                KeyType: HASH
+              - AttributeName: time_created
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
+          - IndexName: solver_history_index
+            KeySchema:
+              - AttributeName: solver_id
+                KeyType: HASH
+              - AttributeName: time_resolved
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
+          - IndexName: place_history_index
+            KeySchema:
+              - AttributeName: place_id
+                KeyType: HASH
+              - AttributeName: time_created
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
+
+    ## -----------------------------------------------------
+    ## tabla sessions
+    ## -----------------------------------------------------
+    SessionsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: sessions
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: session_id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: session_id
+            KeyType: HASH
+        TimeToLiveSpecification:
+          AttributeName: expires_at
+          Enabled: true
+
+  Outputs:
+    UploadsBucketName:
+      Value: !Ref AlertaUtecBucket
+
+functions:
+  get_incidents:
+    handler: get_incidents.lambda_handler
+    events:
+      - httpApi:
+          path: /incidents
+          method: get
+  report_incident:
+    handler: report_incident.lambda_handler
+    events:
+      - httpApi:
+          path: /incidents
+          method: post
+  solve_incident:
+    handler: solve_incident.lambda_handler
+    events:
+      - httpApi:
+          path: /incidents/{incident_id}/resolve
+          method: patch
+  get_incident_by_id:
+    handler: get_incident_by_id.lambda_handler
+    events:
+      - httpApi:
+          path: /incidents/{incident_id}
+          method: get
+  assign_incident:
+    handler: assign_incident.lambda_handler
+    events:
+      - httpApi:
+          path: /incidents/{incident_id}/assign
+          method: patch
+
+  register_user:
+    handler: register_user.lambda_handler
+    events:
+      - httpApi:
+          path: /auth/register
+          method: post
+
+  list_users_by_type:
+    handler: list_users_by_type.lambda_handler
+    events:
+      - httpApi:
+          path: /users
+          method: get
+
+  update_user:
+    handler: update_user.lambda_handler
+    events:
+      - httpApi:
+          path: /users/{type}/{user_id}
+          method: patch
+  
+  get_user_by_id:
+    handler: get_user_by_id.lambda_handler
+    events:
+      - httpApi:
+          path: /users/{type}/{user_id}
+          method: get
+
+  login:
+    handler: login.lambda_handler
+    events:
+      - httpApi:
+          path: /auth/login
+          method: post
+  
+  verify_token:
+    handler: verify_token.lambda_handler
+    events:
+      - httpApi:
+          path: /auth/verify
+          method: post
