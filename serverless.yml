@@ -5,6 +5,7 @@ provider:
   name: aws
   runtime: python3.13
   region: us-east-1
+  stage: ${opt:stage, 'dev'}
   iam:
     role: arn:aws:iam::598447946208:role/LabRole
   deploymentMethod: direct
@@ -14,6 +15,7 @@ provider:
     places_table: places
     uploads_bucket: alerta-utec-bucket
     JWT_SECRET: test_secret # solo para pruebas
+    ADMIN_MASTER_KEY: uwu12345
     sessions_table: sessions
     connections_table: connections
     WS_ENDPOINT:
@@ -26,9 +28,7 @@ provider:
 resources:
   Resources:
 
-    ## -----------------------------------------------------
-    ## bucket (fotos y videos)
-    ## -----------------------------------------------------
+    ## Bucket S3
     AlertaUtecBucket:
       Type: AWS::S3::Bucket
       Properties:
@@ -55,9 +55,7 @@ resources:
               Status: Enabled
               ExpirationInDays: 30
 
-    ## -----------------------------------------------------
-    ## tabla users
-    ## -----------------------------------------------------
+    ## DynamoDB Users
     UsersTable:
       Type: AWS::DynamoDB::Table
       Properties:
@@ -74,9 +72,7 @@ resources:
           - AttributeName: user_id
             KeyType: RANGE
 
-    ## -----------------------------------------------------
-    ## tabla places
-    ## -----------------------------------------------------
+    ## DynamoDB Places
     PlacesTable:
       Type: AWS::DynamoDB::Table
       Properties:
@@ -89,9 +85,7 @@ resources:
           - AttributeName: place_id
             KeyType: HASH
 
-    ## -----------------------------------------------------
-    ## tabla incidents
-    ## -----------------------------------------------------
+    ## DynamoDB Incidents
     IncidentsTable:
       Type: AWS::DynamoDB::Table
       Properties:
@@ -114,11 +108,11 @@ resources:
             AttributeType: S
           - AttributeName: place_id
             AttributeType: S
-        StreamSpecification:
-          StreamViewType: NEW_IMAGE
         KeySchema:
           - AttributeName: incident_id
             KeyType: HASH
+        StreamSpecification:
+          StreamViewType: NEW_IMAGE
         GlobalSecondaryIndexes:
           - IndexName: state_category_index
             KeySchema:
@@ -153,28 +147,23 @@ resources:
             Projection:
               ProjectionType: ALL
 
-
-    ## -----------------------------------------------------
-    ## tabla sessions
-    ## -----------------------------------------------------
+    ## DynamoDB Sessions
     SessionsTable:
       Type: AWS::DynamoDB::Table
       Properties:
         TableName: sessions
         BillingMode: PAY_PER_REQUEST
         AttributeDefinitions:
-          - AttributeName: pk
+          - AttributeName: session_id
             AttributeType: S
         KeySchema:
-          - AttributeName: pk
+          - AttributeName: session_id
             KeyType: HASH
         TimeToLiveSpecification:
           AttributeName: expires_at
           Enabled: true
 
-    ## -----------------------------------------------------
-    ## tabla connections
-    ## -----------------------------------------------------
+    ## DynamoDB Connections
     ConnectionsTable:
       Type: AWS::DynamoDB::Table
       Properties:
@@ -187,9 +176,7 @@ resources:
           - AttributeName: connection_id
             KeyType: HASH
 
-    ## -----------------------------------------------------
-    ## websocketapi
-    ## -----------------------------------------------------
+    ## WebSocket API
     WebSocketApi:
       Type: AWS::ApiGatewayV2::Api
       Properties:
@@ -204,18 +191,28 @@ resources:
       Value: !Ref WebSocketApi
 
 functions:
+  ## HTTP Functions
   get_incidents:
     handler: get_incidents.lambda_handler
     events:
       - httpApi:
           path: /incidents
           method: get
+
+  get_incidents_paginated:
+    handler: get_incidents_paginated.lambda_handler
+    events:
+      - httpApi:
+          path: /incidents/paginated
+          method: get
+
   report_incident:
     handler: report_incident.lambda_handler
     events:
       - httpApi:
           path: /incidents
           method: post
+
   solve_incident:
     handler: solve_incident.lambda_handler
     events:
@@ -223,9 +220,63 @@ functions:
           path: /incidents/{incident_id}/resolve
           method: patch
 
-# -----------------------------------------------
-# websocket
-# -----------------------------------------------
+  get_incident_by_id:
+    handler: get_incident_by_id.lambda_handler
+    events:
+      - httpApi:
+          path: /incidents/{incident_id}
+          method: get
+
+  assign_incident:
+    handler: assign_incident.lambda_handler
+    events:
+      - httpApi:
+          path: /incidents/{incident_id}/assign
+          method: patch
+
+  register_user:
+    handler: register_user.lambda_handler
+    events:
+      - httpApi:
+          path: /auth/register
+          method: post
+
+  list_users_by_type:
+    handler: list_users_by_type.lambda_handler
+    events:
+      - httpApi:
+          path: /users
+          method: get
+
+  update_user:
+    handler: update_user.lambda_handler
+    events:
+      - httpApi:
+          path: /users/{type}/{user_id}
+          method: patch
+  
+  get_user_by_id:
+    handler: get_user_by_id.lambda_handler
+    events:
+      - httpApi:
+          path: /users/{type}/{user_id}
+          method: get
+
+  login:
+    handler: login.lambda_handler
+    events:
+      - httpApi:
+          path: /auth/login
+          method: post
+
+  verify_token:
+    handler: verify_token.lambda_handler
+    events:
+      - httpApi:
+          path: /auth/verify
+          method: post
+
+  ## WebSocket Functions
   connect_handler:
     handler: websocket/connect.lambda_handler
     events:
