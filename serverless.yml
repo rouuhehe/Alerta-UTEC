@@ -18,16 +18,28 @@ provider:
     ADMIN_MASTER_KEY: uwu12345
     sessions_table: sessions
     connections_table: connections
+    USER_REGISTER_TOPIC:
+      Ref: UserRegisterTopic
     WS_ENDPOINT:
       Fn::Join:
         - ""
         - - "https://"
           - Ref: WebSocketApi
           - ".execute-api.${self:provider.region}.amazonaws.com/${self:provider.stage}"
-
+  iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - sns:Subscribe
+          - sns:Publish
+        Resource:
+          - Ref: UserRegisterTopic
 resources:
   Resources:
-
+    UserRegisterTopic:
+      Type: AWS::SNS::Topic
+      Properties:
+        TopicName: alertaUtecUserRegistered
+    
     ## Bucket S3
     AlertaUtecBucket:
       Type: AWS::S3::Bucket
