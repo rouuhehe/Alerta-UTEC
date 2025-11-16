@@ -1,6 +1,6 @@
 import hmac, hashlib, base64, json, os, time
 
-SECRET = os.getenv("JWT_SECRET")
+SECRET = os.environ["JWT_SECRET"]
 
 def b64url_encode(data: bytes) -> str:
     return base64.urlsafe_b64encode(data).decode().rstrip("=")
@@ -14,12 +14,9 @@ def verify_token(token):
         header_b64, body_b64, signature = token.split(".")
 
         expected_sig = b64url_encode(
-            hmac.new(
-                SECRET.encode(),
-                f"{header_b64}.{body_b64}".encode(),
-                hashlib.sha256
-            ).digest()
+            hmac.new(SECRET.encode(), f"{header_b64}.{body_b64}".encode(), hashlib.sha256).digest()
         )
+
 
         if not hmac.compare_digest(expected_sig, signature):
             return None

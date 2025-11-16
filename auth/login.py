@@ -1,16 +1,16 @@
 import uuid, boto3, os, json, hashlib, hmac, base64, time
 
-JWT_SECRET = os.getenv("JWT_SECRET")
+SECRET = os.environ["JWT_SECRET"]
 
 def make_token(payload):
     header = base64.urlsafe_b64encode(json.dumps({"alg": "HS256"}).encode()).decode().rstrip("=")
     body = base64.urlsafe_b64encode(json.dumps(payload).encode()).decode().rstrip("=")
     signature = base64.urlsafe_b64encode(
-        hmac.new(JWT_SECRET.encode(), f"{header}.{body}".encode(), hashlib.sha256).digest()
+        hmac.new(SECRET.encode(), f"{header}.{body}".encode(), hashlib.sha256).digest()
     ).decode().rstrip("=")
     return f"{header}.{body}.{signature}"
 
-def hash_password(password):
+def hash_password(password): 
     return hashlib.sha256(password.encode()).hexdigest()
 
 def lambda_handler(event, context):
