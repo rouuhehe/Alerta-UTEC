@@ -3,7 +3,23 @@ import boto3, time, os, hashlib, json
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
 
+def notify_new_user(user):
+    sns = boto3.client('sns')
+    topic_arn = os.environ['USER_REGISTER_TOPIC']
+    message = {
+        'event': 'new_user_registered',
+        'user_id': user['user_id'],
+        'type': user['type']
+    }
+
+    sns.publish(
+        TopicArn=topic_arn,
+        Message=json.dumps(message),
+        Subject=f"Nuevo usuario registrado: {user['user_id']}"
+    )
+
 def lambda_handler(event, context):
+    
     dynamodb = boto3.resource('dynamodb')
     table_name = os.environ['users_table']
     admin_key = os.environ['ADMIN_MASTER_KEY']
@@ -52,6 +68,7 @@ def lambda_handler(event, context):
 
     try:
         table.put_item(Item=user_item)
+        notify_new_user(user_item)
         return {
             'statusCode': 201,
             'body': json.dumps({'message': f'User {user_id} created successfully'})
