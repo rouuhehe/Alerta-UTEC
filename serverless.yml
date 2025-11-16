@@ -18,7 +18,7 @@ provider:
     ADMIN_MASTER_KEY: uwu12345
     sessions_table: sessions
     connections_table: connections
-    USER_REGISTER_TOPIC: !Ref: UserRegisterTopic
+    USER_REGISTER_TOPIC: !Ref UserRegisterTopic
     WS_ENDPOINT:
       Fn::Join:
         - ""

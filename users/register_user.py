@@ -3,6 +3,16 @@ import boto3, time, os, hashlib, json
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
 
+def subscribe_new_user(user):
+    sns = boto3.client('sns')
+    topic_arn = os.environ['USER_REGISTER_TOPIC']
+
+    sns.subscribe(
+        TopicArn=topic_arn,
+        Protocol='email',
+        Endpoint=f"{user['user_id']}"
+    )
+
 def notify_new_user(user):
     sns = boto3.client('sns')
     topic_arn = os.environ['USER_REGISTER_TOPIC']
@@ -69,6 +79,7 @@ def lambda_handler(event, context):
     try:
         table.put_item(Item=user_item)
 
+        subscribe_new_user(user_item)
         notify_new_user(user_item)
 
         return {
