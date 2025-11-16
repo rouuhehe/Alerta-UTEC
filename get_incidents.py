@@ -49,6 +49,8 @@ def lambda_handler(event, context):
             resp = dynamodb.scan(TableName=table_name)
 
         items = [{k: list(v.values())[0] for k, v in item.items()} for item in resp.get("Items", [])]
+        
+        items.sort(key=lambda x: int(x["time_created"]), reverse=True)
 
         return {
             "statusCode": 200,
