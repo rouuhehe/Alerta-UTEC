@@ -29,8 +29,11 @@ provider:
     ADMIN_MASTER_KEY: uwu12345
     SOLVER_MASTER_KEY: 7w712345
     sessions_table: sessions
+    SES_VERIFIED_EMAIL: "legalcheck666@gmail.com"
     connections_table: connections
     USER_REGISTER_TOPIC: !Ref UserRegisterTopic
+    ADMIN_SOLVER_TOPIC_ARN: !Ref AdminSolverTopic
+    USER_TOPIC_ARN: !Ref UserTopic
     WS_ENDPOINT:
       Fn::Join:
         - ""
@@ -50,7 +53,14 @@ resources:
       Type: AWS::SNS::Topic
       Properties:
         TopicName: alertaUtecUserRegistered
-    
+    AdminSolverTopic:
+      Type: AWS::SNS::Topic
+      Properties:
+        TopicName: alertaUtecAdminSolver
+    UserTopic:
+      Type: AWS::SNS::Topic
+      Properties:
+        TopicName: alertaUtecUser
     ## Bucket S3
     AlertaUtecBucket:
       Type: AWS::S3::Bucket
@@ -134,8 +144,6 @@ resources:
             AttributeType: S
           - AttributeName: time_resolved
             AttributeType: S
-          - AttributeName: place_id
-            AttributeType: S
         KeySchema:
           - AttributeName: incident_id
             KeyType: HASH
@@ -163,14 +171,6 @@ resources:
               - AttributeName: solver_id
                 KeyType: HASH
               - AttributeName: time_resolved
-                KeyType: RANGE
-            Projection:
-              ProjectionType: ALL
-          - IndexName: place_history_index
-            KeySchema:
-              - AttributeName: place_id
-                KeyType: HASH
-              - AttributeName: time_created
                 KeyType: RANGE
             Projection:
               ProjectionType: ALL
